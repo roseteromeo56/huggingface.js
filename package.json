@@ -4,7 +4,7 @@
 	"license": "MIT",
 	"packageManager": "pnpm@8.10.5",
 	"scripts": {
-		"dev": "tsx scripts/dev.ts",
+		"dev": "tsx scripts/dev-interactive.ts",
 		"dev:inference": "npm run dev inference",
 		"dev:svelte": "npm run dev e2e/svelte",
 		"lint": "eslint --quiet --fix --ext .cjs,.ts .eslintrc.cjs",
