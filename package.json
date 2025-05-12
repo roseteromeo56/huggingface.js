@@ -4,6 +4,7 @@
 	"license": "MIT",
 	"packageManager": "pnpm@8.10.5",
 	"scripts": {
+		"dev": "tsx scripts/dev.ts",
 		"lint": "eslint --quiet --fix --ext .cjs,.ts .eslintrc.cjs",
 		"lint:check": "eslint --ext .cjs,.ts .eslintrc.cjs",
 		"format": "prettier --write package.json .prettierrc .vscode .eslintrc.cjs e2e .github *.md",
