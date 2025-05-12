@@ -6,8 +6,6 @@
 	"scripts": {
 		"dev": "tsx scripts/dev-interactive.ts",
 		"dev:inference": "node scripts/run-inference-dev.js",
-		"dev:svelte": "tsx scripts/dev-interactive.ts e2e/svelte",
-		"dev:interactive": "tsx scripts/dev-interactive.ts --interactive",
 		"dev:inference": "npm run dev inference",
 		"dev:svelte": "npm run dev e2e/svelte",
 		"lint": "eslint --quiet --fix --ext .cjs,.ts .eslintrc.cjs",
