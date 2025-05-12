@@ -73,27 +73,60 @@ function startDevServer(packageName: string) {
 		packagePath = resolve(__dirname, "../packages", packageName);
 	}
 
+	const packageJsonPath = resolve(packagePath, "package.json");
+	if (!existsSync(packageJsonPath)) {
+		console.error(`Error: Package ${packageName} not found.`);
+		process.exit(1);
+	}
+
+	// Check if the package has a dev script
+	try {
+		const packageJson = require(packageJsonPath);
+		if (!packageJson.scripts || !packageJson.scripts.dev) {
+			console.error(`Error: Package ${packageName} does not have a dev script.`);
+			process.exit(1);
+		}
+	} catch (e) {
+		console.error(`Error reading package.json for ${packageName}:`, e.message);
+		process.exit(1);
+	}
+
 	// Change to the package directory and run the dev script
+	console.log(`Changing to directory: ${packagePath}`);
 	process.chdir(packagePath);
 
 	// Use the project's package manager to run the dev script
 	const packageManager = "pnpm"; // This is defined in the root package.json as packageManager
-	const result = spawnSync(packageManager, ["run", "dev"], { stdio: "inherit" });
+	console.log(`Running command: ${packageManager} run dev`);
+	const result = spawnSync(packageManager, ["run", "dev"], {
+		stdio: "inherit",
+		shell: true, // Adding shell option for better compatibility
+	});
 
 	if (result.error) {
 		console.error(`Error starting dev server:`, result.error);
 		process.exit(1);
 	}
 
+	console.log(`Dev server for ${packageName} has exited with code ${result.status}`);
 	process.exit(result.status || 0);
 }
 
 // Main function
 async function main() {
+	// Default package - will be used if no input is provided within timeout
+	const DEFAULT_PACKAGE = "inference";
+	const SELECTION_TIMEOUT = 30000; // 30 seconds timeout
+
 	// Check if a package was specified as a command line argument
 	const args = process.argv.slice(2);
-	if (args.length > 0) {
-		startDevServer(args[0]);
+	const forceInteractive = args.includes("--interactive") || args.includes("-i");
+
+	// Remove interactive flags if present
+	const packageArgs = args.filter((arg) => arg !== "--interactive" && arg !== "-i");
+
+	if (packageArgs.length > 0 && !forceInteractive) {
+		startDevServer(packageArgs[0]);
 		return;
 	}
 
@@ -107,7 +140,7 @@ async function main() {
 
 	console.log("Available dev servers:");
 	availablePackages.forEach((pkg, index) => {
-		console.log(`${index + 1}. ${pkg}`);
+		console.log(`${index + 1}. ${pkg}${pkg === DEFAULT_PACKAGE ? " (default)" : ""}`);
 	});
 
 	// If there's only one package, start it automatically
@@ -117,18 +150,56 @@ async function main() {
 		return;
 	}
 
-	// Otherwise, prompt for selection
+	let timeoutId: NodeJS.Timeout;
+	const defaultPackageIndex = availablePackages.indexOf(DEFAULT_PACKAGE);
+	const hasDefaultPackage = defaultPackageIndex !== -1;
+
+	if (hasDefaultPackage) {
+		console.log(
+			`\nEnter the number of the dev server to start (1-${availablePackages.length}) or wait ${SELECTION_TIMEOUT / 1000} seconds for default (${DEFAULT_PACKAGE}):`
+		);
+	} else {
+		console.log(`\nEnter the number of the dev server to start (1-${availablePackages.length}):`);
+	}
+
+	// Otherwise, prompt for selection with timeout
 	const rl = createInterface({
 		input: process.stdin,
 		output: process.stdout,
 	});
 
-	rl.question(`\nEnter the number of the dev server to start (1-${availablePackages.length}): `, (answer) => {
+	// Setup timeout for default selection
+	if (hasDefaultPackage) {
+		timeoutId = setTimeout(() => {
+			console.log(`\nSelection timeout reached. Starting default package: ${DEFAULT_PACKAGE}`);
+			rl.close();
+			startDevServer(DEFAULT_PACKAGE);
+		}, SELECTION_TIMEOUT);
+	}
+
+	rl.question("", (answer) => {
+		// Clear the timeout if user provided input
+		if (hasDefaultPackage) {
+			clearTimeout(timeoutId);
+		}
+
 		rl.close();
+
+		if (!answer.trim() && hasDefaultPackage) {
+			// If user just pressed enter with no selection, use default
+			console.log(`Starting default package: ${DEFAULT_PACKAGE}`);
+			startDevServer(DEFAULT_PACKAGE);
+			return;
+		}
 
 		const selection = parseInt(answer.trim(), 10);
 		if (isNaN(selection) || selection < 1 || selection > availablePackages.length) {
 			console.error("Invalid selection!");
+			if (hasDefaultPackage) {
+				console.log(`Falling back to default package: ${DEFAULT_PACKAGE}`);
+				startDevServer(DEFAULT_PACKAGE);
+				return;
+			}
 			process.exit(1);
 		}
 
