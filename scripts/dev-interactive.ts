@@ -60,6 +60,35 @@ function detectPackagesWithDevScripts() {
 	return availablePackages;
 }
 
+// Function to detect available package manager
+function detectPackageManager() {
+	// Try to detect which package managers are available
+	const checkCommand = process.platform === "win32" ? "where" : "which";
+
+	// Try pnpm first (since it's in packageManager field)
+	try {
+		const pnpmResult = spawnSync(checkCommand, ["pnpm"], { stdio: "ignore" });
+		if (pnpmResult.status === 0) {
+			return "pnpm";
+		}
+	} catch (e) {
+		// Ignore error
+	}
+
+	// Try npm next
+	try {
+		const npmResult = spawnSync(checkCommand, ["npm"], { stdio: "ignore" });
+		if (npmResult.status === 0) {
+			return "npm";
+		}
+	} catch (e) {
+		// Ignore error
+	}
+
+	// Fall back to npm as a last resort
+	return "npm";
+}
+
 // Function to start dev server for a package
 function startDevServer(packageName: string) {
 	console.log(`Starting dev server for ${packageName}...`);
@@ -95,9 +124,11 @@ function startDevServer(packageName: string) {
 	console.log(`Changing to directory: ${packagePath}`);
 	process.chdir(packagePath);
 
-	// Use the project's package manager to run the dev script
-	const packageManager = "pnpm"; // This is defined in the root package.json as packageManager
+	// Detect and use an available package manager
+	const packageManager = detectPackageManager();
+	console.log(`Using package manager: ${packageManager}`);
 	console.log(`Running command: ${packageManager} run dev`);
+
 	const result = spawnSync(packageManager, ["run", "dev"], {
 		stdio: "inherit",
 		shell: true, // Adding shell option for better compatibility
@@ -116,7 +147,7 @@ function startDevServer(packageName: string) {
 async function main() {
 	// Default package - will be used if no input is provided within timeout
 	const DEFAULT_PACKAGE = "inference";
-	const SELECTION_TIMEOUT = 30000; // 30 seconds timeout
+	const SELECTION_TIMEOUT = 10000; // 10 seconds timeout
 
 	// Check if a package was specified as a command line argument
 	const args = process.argv.slice(2);
