@@ -5,7 +5,7 @@
 	"packageManager": "pnpm@8.10.5",
 	"scripts": {
 		"dev": "tsx scripts/dev-interactive.ts",
-		"dev:inference": "tsx scripts/dev-interactive.ts inference",
+		"dev:inference": "node scripts/run-inference-dev.js",
 		"dev:svelte": "tsx scripts/dev-interactive.ts e2e/svelte",
 		"dev:interactive": "tsx scripts/dev-interactive.ts --interactive",
 		"dev:inference": "npm run dev inference",
