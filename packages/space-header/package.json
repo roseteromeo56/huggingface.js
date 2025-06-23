@@ -43,7 +43,7 @@
 	"author": "Hugging Face",
 	"license": "MIT",
 	"devDependencies": {
-		"tsup": "^8.1.0",
+		"tsup": "^8.3.5",
 		"typescript": "^5.4.5"
 	}
 }
