@@ -28,7 +28,7 @@
 		"typedoc-plugin-markdown": "^3.17.1"
 	},
 	"dependencies": {
-		"glob": "^9.2.1",
-		"yaml": "^2.2.2"
+		"glob": "^13.0.6",
+		"yaml": "^2.8.3"
 	}
 }
