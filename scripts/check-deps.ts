@@ -1,3 +1,7 @@
+ dd/fix/check-deps-command-injection-ftgNhK
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { join } from "node:path";
  dd/fix/check-deps-command-injection-UZh34v
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
@@ -8,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs
 import { execFileSync } from "node:child_process"; dd/fix/check-deps-command-injection-2sQwMY
 import { mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { mkdirSync, readFileSync, renameSync, rmSync } from "node:fs"; dd/fix/check-deps-command-injection-lir7nS
-import { join } from "node:path"; main main main main
+import { join } from "node:path"; main main main main main
 import { parseArgs } from "node:util";
 
 const args = parseArgs({
@@ -42,7 +46,23 @@ if (!/^[a-z0-9-]+$/.test(dep)) {
 	console.error("Error: Invalid dependency name.");
 	process.exit(1);
 }
+ dd/fix/check-deps-command-injection-ftgNhK
+const packageDirs = new Set(
+	readdirSync("./packages", { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+);
 
+if (!packageDirs.has(dep)) {
+	console.error(`Error: Invalid dependency "${dep}".`);
+	process.exit(1);
+}
+
+process.chdir(join("./packages", dep));
+
+const localPackageJson = readFileSync(`./package.json`, "utf-8");
+const localVersion = JSON.parse(localPackageJson).version as string;
+const remoteVersion = execFileSync("npm", ["view", `@huggingface/${dep}`, "version"]).toString().trim();
 const packagePath = resolve("./packages", dep);
 
 if (!existsSync(packagePath)) {
@@ -72,7 +92,7 @@ process.chdir(join("packages", dep));
 const localPackageJson = readFileSync(`./package.json`, "utf-8");
 const localVersion = JSON.parse(localPackageJson).version as string; dd/fix/check-deps-command-injection-wNt2VO
 const remoteVersion = execFileSync("npm", ["view", `@huggingface/${dep}`, "version"], { encoding: "utf-8" }).trim();
-const remoteVersion = execFileSync("npm", ["view", `@huggingface/${dep}`, "version"], { encoding: "utf-8" }).trim(); main main main main
+const remoteVersion = execFileSync("npm", ["view", `@huggingface/${dep}`, "version"], { encoding: "utf-8" }).trim(); main main main main main
 
 if (localVersion !== remoteVersion) {
 	console.error(
@@ -119,7 +139,33 @@ execFileSync("tar", ["-xf", `${dep}-remote.tgz`, "-C", "remote"]);
 run("npm", ["pack", `@huggingface/${dep}@${remoteVersion}`]);
 runCommand("npm", ["pack", `@huggingface/${dep}@${remoteVersion}`]); main
 renameSync(`huggingface-${dep}-${remoteVersion}.tgz`, `${dep}-remote.tgz`);
+ dd/fix/check-deps-command-injection-ftgNhK
+execFileSync("npm", ["pack"]);
+renameSync(`huggingface-${dep}-${localVersion}.tgz`, `${dep}-local.tgz`);
 
+execFileSync("npm", ["pack", `@huggingface/${dep}@${remoteVersion}`]);
+renameSync(`huggingface-${dep}-${remoteVersion}.tgz`, `${dep}-remote.tgz`);
+
+rmSync("local", { recursive: true, force: true });
+mkdirSync("local");
+execFileSync("tar", ["-xf", `${dep}-local.tgz`, "-C", "local"]);
+
+rmSync("remote", { recursive: true, force: true });
+mkdirSync("remote");
+execFileSync("tar", ["-xf", `${dep}-remote.tgz`, "-C", "remote"]);
+
+// Remove package.json files because they're modified by npm
+rmSync("local/package/package.json");
+rmSync("remote/package/package.json");
+
+try {
+	execFileSync("diff", ["--brief", "-r", "local", "remote"], { stdio: "pipe" });
+} catch (e: unknown) {
+	if (e && typeof e === "object" && "stdout" in e && "stderr" in e) {
+		const stdout = e.stdout ? String(e.stdout) : "";
+		const stderr = e.stderr ? String(e.stderr) : "";
+		console.error([stdout, stderr].filter(Boolean).join("\n"));
+	}
 rmSync("local", { recursive: true, force: true });
 mkdirSync("local");
 execFileSync("tar", ["-xf", `${dep}-local.tgz`, "-C", "local"]);
@@ -198,17 +244,19 @@ try { dd/fix/check-deps-command-injection-2sQwMY
 				.map((entry) => entry.toString())
 				.join("\n")
 		);
-	} main main main
+	} main main main main
 	console.error(`Error: The local and remote @huggingface/${dep} packages are inconsistent. Release halted.`);
 	process.exit(1);
 }
 
 console.log(`The local and remote @huggingface/${dep} packages are consistent.`); dd/fix/check-deps-command-injection-UZh34v
-
+ dd/fix/check-deps-command-injection-ftgNhK
+rmSync("local", { recursive: true, force: true });
+rmSync("remote", { recursive: true, force: true });
 rmSync("local", { force: true, recursive: true });
 rmSync("remote", { force: true, recursive: true });
  dd/fix/check-deps-command-injection-wNt2VO
 rmSync("local", { force: true, recursive: true });
 rmSync("remote", { force: true, recursive: true });
 rmSync("local", { recursive: true, force: true });
-rmSync("remote", { recursive: true, force: true }); main main
+rmSync("remote", { recursive: true, force: true }); main main main
