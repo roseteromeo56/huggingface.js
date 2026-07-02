@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { parseArgs } from "node:util";
 
 const args = parseArgs({
@@ -13,11 +13,18 @@ if (!dep) {
 	process.exit(1);
 }
 
+if (!/^[a-z0-9-]+$/.test(dep)) {
+	console.error("Error: Invalid dependency name.");
+	process.exit(1);
+}
+
+const run = (command: string, args: string[]): string => execFileSync(command, args, { encoding: "utf-8" }).trim();
+
 process.chdir(`./packages/${dep}`);
 
 const localPackageJson = readFileSync(`./package.json`, "utf-8");
 const localVersion = JSON.parse(localPackageJson).version as string;
-const remoteVersion = execSync(`npm view @huggingface/${dep} version`).toString().trim();
+const remoteVersion = run("npm", ["view", `@huggingface/${dep}`, "version"]);
 
 if (localVersion !== remoteVersion) {
 	console.error(
@@ -26,28 +33,36 @@ if (localVersion !== remoteVersion) {
 	process.exit(1);
 }
 
-execSync(`npm pack`);
-execSync(`mv huggingface-${dep}-${localVersion}.tgz ${dep}-local.tgz`);
+run("npm", ["pack"]);
+renameSync(`huggingface-${dep}-${localVersion}.tgz`, `${dep}-local.tgz`);
 
-execSync(`npm pack @huggingface/${dep}@${remoteVersion}`);
-execSync(`mv huggingface-${dep}-${remoteVersion}.tgz ${dep}-remote.tgz`);
+run("npm", ["pack", `@huggingface/${dep}@${remoteVersion}`]);
+renameSync(`huggingface-${dep}-${remoteVersion}.tgz`, `${dep}-remote.tgz`);
 
-execSync(`rm -Rf local && mkdir local && tar -xf ${dep}-local.tgz -C local`);
-execSync(`rm -Rf remote && mkdir remote && tar -xf ${dep}-remote.tgz -C remote`);
+rmSync("local", { recursive: true, force: true });
+mkdirSync("local");
+execFileSync("tar", ["-xf", `${dep}-local.tgz`, "-C", "local"]);
+
+rmSync("remote", { recursive: true, force: true });
+mkdirSync("remote");
+execFileSync("tar", ["-xf", `${dep}-remote.tgz`, "-C", "remote"]);
 
 // Remove package.json files because they're modified by npm
-execSync(`rm local/package/package.json`);
-execSync(`rm remote/package/package.json`);
+rmSync("local/package/package.json");
+rmSync("remote/package/package.json");
 
 try {
-	execSync("diff --brief -r local remote").toString();
+	execFileSync("diff", ["--brief", "-r", "local", "remote"], { encoding: "utf-8" });
 } catch (e) {
-	console.error(e.output.filter(Boolean).join("\n"));
+	const error = e as Error & { stdout?: Buffer | string; stderr?: Buffer | string };
+	const stdout = typeof error.stdout === "string" ? error.stdout : error.stdout?.toString();
+	const stderr = typeof error.stderr === "string" ? error.stderr : error.stderr?.toString();
+	console.error([stdout, stderr].filter(Boolean).join("\n"));
 	console.error(`Error: The local and remote @huggingface/${dep} packages are inconsistent. Release halted.`);
 	process.exit(1);
 }
 
 console.log(`The local and remote @huggingface/${dep} packages are consistent.`);
 
-execSync(`rm -Rf local`);
-execSync(`rm -Rf remote`);
+rmSync("local", { recursive: true, force: true });
+rmSync("remote", { recursive: true, force: true });
