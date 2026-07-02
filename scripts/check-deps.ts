@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { parseArgs } from "node:util";
 
 const args = parseArgs({
@@ -13,11 +13,23 @@ if (!dep) {
 	process.exit(1);
 }
 
-process.chdir(`./packages/${dep}`);
+if (!/^[a-z0-9-]+$/i.test(dep)) {
+	console.error(`Error: Invalid dependency name "${dep}".`);
+	process.exit(1);
+}
+
+const packageDir = `./packages/${dep}`;
+
+if (!existsSync(packageDir)) {
+	console.error(`Error: Unknown dependency "${dep}".`);
+	process.exit(1);
+}
+
+process.chdir(packageDir);
 
 const localPackageJson = readFileSync(`./package.json`, "utf-8");
 const localVersion = JSON.parse(localPackageJson).version as string;
-const remoteVersion = execSync(`npm view @huggingface/${dep} version`).toString().trim();
+const remoteVersion = execFileSync("npm", ["view", `@huggingface/${dep}`, "version"], { encoding: "utf-8" }).trim();
 
 if (localVersion !== remoteVersion) {
 	console.error(
@@ -26,28 +38,44 @@ if (localVersion !== remoteVersion) {
 	process.exit(1);
 }
 
-execSync(`npm pack`);
-execSync(`mv huggingface-${dep}-${localVersion}.tgz ${dep}-local.tgz`);
+const localTarball = execFileSync("npm", ["pack"], { encoding: "utf-8" }).trim();
+renameSync(localTarball, `${dep}-local.tgz`);
 
-execSync(`npm pack @huggingface/${dep}@${remoteVersion}`);
-execSync(`mv huggingface-${dep}-${remoteVersion}.tgz ${dep}-remote.tgz`);
+const remoteTarball = execFileSync("npm", ["pack", `@huggingface/${dep}@${remoteVersion}`], { encoding: "utf-8" }).trim();
+renameSync(remoteTarball, `${dep}-remote.tgz`);
 
-execSync(`rm -Rf local && mkdir local && tar -xf ${dep}-local.tgz -C local`);
-execSync(`rm -Rf remote && mkdir remote && tar -xf ${dep}-remote.tgz -C remote`);
+const unpackTarball = (tarball: string, destination: string) => {
+	rmSync(destination, { force: true, recursive: true });
+	mkdirSync(destination, { recursive: true });
+	execFileSync("tar", ["-xf", tarball, "-C", destination]);
+};
+
+unpackTarball(`${dep}-local.tgz`, "local");
+unpackTarball(`${dep}-remote.tgz`, "remote");
 
 // Remove package.json files because they're modified by npm
-execSync(`rm local/package/package.json`);
-execSync(`rm remote/package/package.json`);
+rmSync(`local/package/package.json`, { force: true });
+rmSync(`remote/package/package.json`, { force: true });
 
 try {
-	execSync("diff --brief -r local remote").toString();
-} catch (e) {
-	console.error(e.output.filter(Boolean).join("\n"));
+	execFileSync("diff", ["--brief", "-r", "local", "remote"]);
+} catch (error) {
+	const commandError = error as { stderr?: Buffer | string; stdout?: Buffer | string };
+	const commandOutput = [commandError.stderr, commandError.stdout]
+		.filter(Boolean)
+		.map((entry) => (typeof entry === "string" ? entry : entry.toString()))
+		.join("\n")
+		.trim();
+
+	if (commandOutput) {
+		console.error(commandOutput);
+	}
+
 	console.error(`Error: The local and remote @huggingface/${dep} packages are inconsistent. Release halted.`);
 	process.exit(1);
 }
 
 console.log(`The local and remote @huggingface/${dep} packages are consistent.`);
 
-execSync(`rm -Rf local`);
-execSync(`rm -Rf remote`);
+rmSync(`local`, { force: true, recursive: true });
+rmSync(`remote`, { force: true, recursive: true });
