@@ -28,10 +28,10 @@
 		"prettier-plugin-svelte": "^3.1.2",
 		"semver": "^7.5.0",
 		"tshy": "^3.0.2",
-		"tsup": "^6.7.0",
+		"tsup": "^8.3.5",
 		"tsx": "^4.7.0",
 		"typescript": "^5.4.2",
-		"vite": "^5.0.2",
+		"vite": "^5.4.19",
 		"vitest": "^0.34.6",
 		"webdriverio": "^8.6.7"
 	}
