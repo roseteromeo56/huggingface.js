@@ -5,7 +5,7 @@ API_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 headers = {"Authorization": "Bearer api_token"}
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload, stream=True)
+    response = requests.post(API_URL, headers=headers, json=payload, stream=True, timeout=5)
     for line in response.iter_lines():
         if not line.startswith(b"data:"):
             continue
