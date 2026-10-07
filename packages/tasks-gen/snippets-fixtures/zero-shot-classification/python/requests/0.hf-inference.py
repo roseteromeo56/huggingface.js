@@ -4,7 +4,7 @@ API_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-large
 headers = {"Authorization": "Bearer api_token"}
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+    response = requests.post(API_URL, headers=headers, json=payload, timeout=5)
     return response.json()
 
 output = query({
